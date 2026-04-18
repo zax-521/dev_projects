@@ -1,0 +1,28 @@
+{
+  "questions": {
+    "choice": [
+      {
+        "question": "According to the text, what is the primary goal of Artificial Intelligence (AI)?",
+        "options": [
+          "To understand the essence of intelligence and create machines that react similarly to human intelligence",
+          "To replace human workers in all industries with automated systems",
+          "To develop entertainment technologies for virtual reality experiences",
+          "To focus solely on robotics and exclude other technological fields"
+        ],
+        "answer": "A",
+        "explanation": "The text explicitly states that AI is a branch of computer science aiming to 'understand the essence of intelligence and produce intelligent machines that can react in ways similar to human intelligence,' making option A correct. The other options either misrepresent the text's focus or introduce elements not supported by the provided content.",
+        "type": "choice",
+        "id": "choice_1",
+        "points": 2
+      }
+    ]
+  },
+  "metadata": {
+    "generation_time": "2025-11-25T16:28:59.480753",
+    "text_length": 1646,
+    "question_types": [
+      "choice"
+    ],
+    "total_questions": 1
+  }
+}

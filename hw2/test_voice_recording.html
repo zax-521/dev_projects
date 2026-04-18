@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест записи голоса</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .test-section h2 {
+            color: #4a6fa5;
+            margin-top: 0;
+        }
+        
+        button {
+            background: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #166088;
+        }
+        
+        button.recording {
+            background: #dc3545;
+            animation: pulse 1.5s infinite;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin: 15px 0;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .result {
+            padding: 15px;
+            background: #e9f7ef;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #28a745;
+        }
+        
+        .error {
+            padding: 15px;
+            background: #f8d7da;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Тест записи голоса</h1>
+        
+        <div class="instructions">
+            <h3>Инструкция по тестированию:</h3>
+            <ol>
+                <li>Нажмите кнопку "Начать тест записи"</li>
+                <li>Разрешите доступ к микрофону, когда браузер запросит разрешение</li>
+                <li>Говорите в микрофон в течение 5 секунд</li>
+                <li>Нажмите кнопку "Остановить запись" или подождите автоматической остановки</li>
+                <li>Проверьте результат распознавания</li>
+            </ol>
+            <p><strong>Примечание:</strong> Если запись не работает, проверьте настройки микрофона в браузере.</p>
+        </div>
+        
+        <div class="test-section">
+            <h2>Тест 1: Проверка поддержки браузера</h2>
+            <button id="check-support-btn">Проверить поддержку браузера</button>
+            <div id="support-status" class="status">Статус: Не проверено</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Тест 2: Запись голоса</h2>
+            <button id="record-btn">Начать тест записи</button>
+            <button id="stop-btn" disabled>Остановить запись</button>
+            <div id="recording-status" class="status">Готов к записи</div>
+            
+            <div id="recording-result" style="display: none;">
+                <h3>Результат записи:</h3>
+                <div id="audio-container"></div>
+                <div id="recognition-result"></div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Тест 3: Проверка API</h2>
+            <button id="test-api-btn">Проверить API распознавания речи</button>
+            <div id="api-status" class="status">Статус API: Не проверено</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Информация о браузере</h2>
+            <div id="browser-info" class="status">Загрузка информации...</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Элементы DOM
+            const checkSupportBtn = document.getElementById('check-support-btn');
+            const recordBtn = document.getElementById('record-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const testApiBtn = document.getElementById('test-api-btn');
+            const supportStatus = document.getElementById('support-status');
+            const recordingStatus = document.getElementById('recording-status');
+            const apiStatus = document.getElementById('api-status');
+            const browserInfo = document.getElementById('browser-info');
+            const recordingResult = document.getElementById('recording-result');
+            const audioContainer = document.getElementById('audio-container');
+            const recognitionResult = document.getElementById('recognition-result');
+            
+            let mediaRecorder = null;
+            let audioChunks = [];
+            let isRecording = false;
+            
+            // Информация о браузере
+            function updateBrowserInfo() {
+                const info = `
+                    <strong>Браузер:</strong> ${navigator.userAgent}<br>
+                    <strong>Поддержка getUserMedia:</strong> ${!!navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia ? 'Да' : 'Нет'}<br>
+                    <strong>Поддержка MediaRecorder:</strong> ${!!window.MediaRecorder ? 'Да' : 'Нет'}<br>
+                    <strong>Протокол:</strong> ${window.location.protocol}
+                `;
+                browserInfo.innerHTML = info;
+            }
+            
+            // Проверка поддержки браузера
+            checkSupportBtn.addEventListener('click', function() {
+                const hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+                const hasMediaRecorder = !!window.MediaRecorder;
+                
+                if (hasGetUserMedia && hasMediaRecorder) {
+                    supportStatus.innerHTML = '<span style="color: green;">✅ Браузер поддерживает запись голоса</span>';
+                    recordBtn.disabled = false;
+                } else {
+                    let errorMsg = '❌ Браузер не поддерживает запись голоса: ';
+                    if (!hasGetUserMedia) errorMsg += 'отсутствует getUserMedia API. ';
+                    if (!hasMediaRecorder) errorMsg += 'отсутствует MediaRecorder API.';
+                    supportStatus.innerHTML = `<span style="color: red;">${errorMsg}</span>`;
+                    recordBtn.disabled = true;
+                }
+            });
+            
+            // Тест API
+            testApiBtn.addEventListener('click', async function() {
+                apiStatus.innerHTML = 'Проверка API...';
+                
+                try {
+                    const response = await fetch('/api/text-to-speech', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            text: 'Тест API распознавания речи',
+                            language: 'ru'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        apiStatus.innerHTML = '<span style="color: green;">✅ API распознавания речи работает нормально</span>';
+                    } else {
+                        apiStatus.innerHTML = `<span style="color: orange;">⚠ API вернул ошибку: ${data.error}</span>`;
+                    }
+                } catch (error) {
+                    apiStatus.innerHTML = `<span style="color: red;">❌ Ошибка подключения к API: ${error.message}</span>`;
+                }
+            });
+            
+            // Запись голоса
+            recordBtn.addEventListener('click', async function() {
+                if (!isRecording) {
+                    try {
+                        recordingStatus.innerHTML = 'Запрос доступа к микрофону...';
+                        
+                        const stream = await navigator.mediaDevices.getUserMedia({ 
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                sampleRate: 44100
+                            }
+                        });
+                        
+                        const options = { mimeType: 'audio/webm' };
+                        mediaRecorder = new MediaRecorder(stream, options);
+                        audioChunks = [];
+                        
+                        mediaRecorder.ondataavailable = event => {
+                            if (event.data.size > 0) {
+                                audioChunks.push(event.data);
+                            }
+                        };
+                        
+                        mediaRecorder.onstop = async () => {
+                            recordingStatus.innerHTML = 'Обработка записи...';
+                            
+                            try {
+                                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                                
+                                if (audioBlob.size < 100) {
+                                    recordingStatus.innerHTML = 'Запись слишком короткая или пустая';
+                                    resetRecording();
+                                    return;
+                                }
+                                
+                                // Показать аудиоплеер
+                                const audioUrl = URL.createObjectURL(audioBlob);
+                                audioContainer.innerHTML = `
+                                    <h4>Записанное аудио:</h4>
+                                    <audio controls style="width: 100%; margin: 10px 0;">
+                                        <source src="${audioUrl}" type="audio/webm">
+                                        Ваш браузер не поддерживает аудиоплеер
+                                    </audio>
+                                    <p>Размер файла: ${(audioBlob.size / 1024).toFixed(2)} KB</p>
+                                `;
+                                
+                                // Отправить на распознавание
+                                recordingStatus.innerHTML = 'Распознавание речи...';
+                                
+                                const formData = new FormData();
+                                formData.append('audio', audioBlob, 'test_recording.webm');
+                                
+                                const response = await fetch('/api/speech-to-text', {
+                                    method: 'POST',
+                                    body: formData
+                                });
+                                
+                                const data = await response.json();
+                                
+                                if (data.success) {
+                                    recordingStatus.innerHTML = 'Запись завершена ✓';
+                                    recognitionResult.innerHTML = `
+                                        <div class="result">
+                                            <h4>Распознанный текст:</h4>
+                                            <p><strong>${data.text}</strong></p>
+                                        </div>
+                                    `;
+                                } else {
+                                    recordingStatus.innerHTML = `Ошибка распознавания: ${data.error}`;
+                                    recognitionResult.innerHTML = `
+                                        <div class="error">
+                                            <h4>Ошибка:</h4>
+                                            <p>${data.error}</p>
+                                        </div>
+                                    `;
+                                }
+                            } catch (error) {
+                                recordingStatus.innerHTML = `Ошибка обработки: ${error.message}`;
+                                console.error('Ошибка обработки записи:', error);
+                            } finally {
+                                recordingResult.style.display = 'block';
+                                resetRecording();
+                            }
+                        };
+                        
+                        mediaRecorder.onerror = (event) => {
+                            console.error('Ошибка MediaRecorder:', event.error);
+                            recordingStatus.innerHTML = `Ошибка записи: ${event.error.name}`;
+                            resetRecording();
+                        };
+                        
+                        mediaRecorder.start(1000);
+                        isRecording = true;
+                        recordBtn.textContent = 'Запись...';
+                        recordBtn.classList.add('recording');
+                        recordBtn.disabled = true;
+                        stopBtn.disabled = false;
+                        recordingStatus.innerHTML = 'Запись... Говорите сейчас';
+                        
+                        // Автоматическая остановка через 10 секунд
+                        setTimeout(() => {
+                            if (isRecording && mediaRecorder && mediaRecorder.state === 'recording') {
+                                mediaRecorder.stop();
+                            }
+                        }, 10000);
+                        
+                    } catch (error) {
+                        console.error('Ошибка доступа к микрофону:', error);
+                        
+                        let errorMessage = 'Неизвестная ошибка';
+                        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                            errorMessage = 'Доступ к микрофону запрещен. Разрешите доступ в настройках браузера.';
+                        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                            errorMessage = 'Микрофон не найден. Убедитесь, что микрофон подключен.';
+                        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                            errorMessage = 'Микрофон используется другим приложением.';
+                        } else if (error.name === 'OverconstrainedError') {
+                            errorMessage = 'Требуемые параметры микрофона недоступны.';
+                        } else {
+                            errorMessage = error.message;
+                        }
+                        
+                        recordingStatus.innerHTML = `Ошибка: ${errorMessage}`;
+                        resetRecording();
+                    }
+                }
+            });
+            
+            // Остановка записи
+            stopBtn.addEventListener('click', function() {
+                if (isRecording && mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                }
+            });
+            
+            // Сброс состояния записи
+            function resetRecording() {
+                isRecording = false;
+                recordBtn.textContent = 'Начать тест записи';
+                recordBtn.classList.remove('recording');
+                recordBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+            
+            // Инициализация
+            updateBrowserInfo();
+            checkSupportBtn.click();
+            testApiBtn.click();
+        });
+    </script>
+</body>
+</html>

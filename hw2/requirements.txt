@@ -1,0 +1,24 @@
+# 参考机器人项目依赖
+
+# Web框架
+Flask==2.3.3
+Flask-CORS==4.0.0
+
+# 数据库
+sqlite3
+
+# HTTP请求
+requests==2.31.0
+
+# 语音功能（可选）
+SpeechRecognition==3.10.0
+gTTS==2.3.2
+pygame==2.5.2
+
+# 其他工具
+python-dotenv==1.0.0
+
+# 开发工具
+pytest==7.4.3
+black==23.9.1
+flake8==6.1.0

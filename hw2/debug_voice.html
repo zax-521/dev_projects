@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отладка записи голоса</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        button {
+            background: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        
+        button:hover {
+            background: #166088;
+        }
+        
+        button.recording {
+            background: #dc3545;
+            animation: pulse 1.5s infinite;
+        }
+        
+        #console-output {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+            white-space: pre-wrap;
+        }
+        
+        .status {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Отладка записи голоса</h1>
+        
+        <div class="test-section">
+            <h2>1. Проверка элементов на странице</h2>
+            <button onclick="checkElements()">Проверить элементы</button>
+            <div id="elements-status" class="status">Не проверено</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>2. Проверка поддержки браузера</h2>
+            <button onclick="checkBrowserSupport()">Проверить поддержку браузера</button>
+            <div id="browser-status" class="status">Не проверено</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>3. Тест записи голоса (упрощенный)</h2>
+            <button id="simple-record-btn" onclick="startSimpleRecording()">Начать простую запись</button>
+            <button id="simple-stop-btn" onclick="stopSimpleRecording()" disabled>Остановить запись</button>
+            <div id="simple-status" class="status">Готов</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>4. Консоль отладки</h2>
+            <button onclick="clearConsole()">Очистить консоль</button>
+            <div id="console-output"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>5. Инструкция</h2>
+            <p>1. Нажмите "Проверить элементы" - должны увидеть "Элементы найдены"</p>
+            <p>2. Нажмите "Проверить поддержку браузера" - должны увидеть "Браузер поддерживает запись"</p>
+            <p>3. Нажмите "Начать простую запись" - браузер запросит доступ к микрофону</p>
+            <p>4. Разрешите доступ и говорите в микрофон</p>
+            <p>5. Нажмите "Остановить запись"</p>
+            <p>6. Проверьте консоль отладки на наличие ошибок</p>
+        </div>
+    </div>
+
+    <script>
+        const consoleOutput = document.getElementById('console-output');
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            consoleOutput.innerHTML += `[${timestamp}] ${message}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearConsole() {
+            consoleOutput.innerHTML = '';
+            log('Консоль очищена');
+        }
+        
+        function checkElements() {
+            // В отладочной странице нет этих элементов, поэтому всегда показываем предупреждение
+            document.getElementById('elements-status').innerHTML = 
+                '<span style="color: orange;">⚠ Это отладочная страница, элементы record-btn и recording-status находятся в главном приложении</span>';
+            log('Отладочная страница: элементы record-btn и recording-status находятся в главном приложении (http://localhost:5000/)');
+            
+            // Проверить, можем ли мы получить доступ к главному приложению
+            fetch('http://localhost:5000/')
+                .then(response => {
+                    if (response.ok) {
+                        log('Главное приложение доступно: http://localhost:5000/');
+                    } else {
+                        log(`Главное приложение недоступно: статус ${response.status}`);
+                    }
+                })
+                .catch(error => {
+                    log(`Ошибка доступа к главному приложению: ${error.message}`);
+                });
+        }
+        
+        function checkBrowserSupport() {
+            const hasGetUserMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            const hasMediaRecorder = !!window.MediaRecorder;
+            
+            if (hasGetUserMedia && hasMediaRecorder) {
+                document.getElementById('browser-status').innerHTML = 
+                    '<span style="color: green;">✅ Браузер поддерживает запись голоса</span>';
+                log('Браузер поддерживает запись голоса: getUserMedia и MediaRecorder доступны');
+            } else {
+                let errorMsg = '❌ Браузер не поддерживает запись голоса: ';
+                if (!hasGetUserMedia) errorMsg += 'нет getUserMedia, ';
+                if (!hasMediaRecorder) errorMsg += 'нет MediaRecorder';
+                
+                document.getElementById('browser-status').innerHTML = 
+                    `<span style="color: red;">${errorMsg}</span>`;
+                log(errorMsg);
+            }
+        }
+        
+        async function startSimpleRecording() {
+            if (isRecording) return;
+            
+            try {
+                log('Запрос доступа к микрофону...');
+                document.getElementById('simple-status').textContent = 'Запрос доступа...';
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: true 
+                });
+                
+                log('Доступ к микрофону получен');
+                
+                const options = { mimeType: 'audio/webm' };
+                mediaRecorder = new MediaRecorder(stream, options);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                        log(`Получены аудиоданные: ${event.data.size} байт`);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    log('Запись остановлена');
+                    document.getElementById('simple-status').textContent = 'Запись завершена';
+                    
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    log(`Создан аудиофайл: ${audioBlob.size} байт`);
+                    
+                    // Остановить поток
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Сброс состояния
+                    isRecording = false;
+                    document.getElementById('simple-record-btn').textContent = 'Начать простую запись';
+                    document.getElementById('simple-record-btn').classList.remove('recording');
+                    document.getElementById('simple-stop-btn').disabled = true;
+                };
+                
+                mediaRecorder.onerror = (event) => {
+                    log(`Ошибка MediaRecorder: ${event.error.name}`);
+                    document.getElementById('simple-status').textContent = `Ошибка: ${event.error.name}`;
+                };
+                
+                mediaRecorder.start(1000);
+                isRecording = true;
+                document.getElementById('simple-record-btn').textContent = 'Запись...';
+                document.getElementById('simple-record-btn').classList.add('recording');
+                document.getElementById('simple-stop-btn').disabled = false;
+                document.getElementById('simple-status').textContent = 'Запись... Говорите сейчас';
+                
+                log('Запись начата');
+                
+            } catch (error) {
+                log(`Ошибка доступа к микрофону: ${error.name} - ${error.message}`);
+                document.getElementById('simple-status').textContent = `Ошибка: ${error.name}`;
+                
+                // Сброс состояния
+                isRecording = false;
+                document.getElementById('simple-record-btn').textContent = 'Начать простую запись';
+                document.getElementById('simple-record-btn').classList.remove('recording');
+                document.getElementById('simple-stop-btn').disabled = true;
+            }
+        }
+        
+        function stopSimpleRecording() {
+            if (isRecording && mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                log('Остановка записи...');
+            }
+        }
+        
+        // Автоматически запустить проверки
+        window.onload = function() {
+            log('Страница отладки загружена');
+            setTimeout(() => {
+                checkElements();
+                checkBrowserSupport();
+            }, 500);
+        };
+    </script>
+</body>
+</html>

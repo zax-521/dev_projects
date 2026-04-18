@@ -1,0 +1,41 @@
+2025-11-25 15:54:31,247 - INFO - 测试题生成器初始化完成 - DeepSeek: False
+2025-11-25 15:54:31,248 - INFO - JSON文件已导出: output.json
+2025-11-25 15:54:31,250 - INFO - 文本文件已导出: output.txt
+2025-11-25 16:01:59,567 - INFO - 测试题生成器初始化完成 - DeepSeek: False
+2025-11-25 16:01:59,568 - INFO - JSON文件已导出: output.json
+2025-11-25 16:01:59,569 - INFO - 文本文件已导出: output.txt
+2025-11-25 16:03:37,809 - INFO - 测试题生成器初始化完成 - DeepSeek: False
+2025-11-25 16:04:33,154 - INFO - 测试题生成器初始化完成 - DeepSeek: False
+2025-11-25 16:05:15,077 - INFO - 测试题生成器初始化完成 - DeepSeek: False
+2025-11-25 16:05:15,078 - INFO - 成功生成 choice 题型第 1 题
+2025-11-25 16:05:15,080 - INFO - 成功生成 choice 题型第 2 题
+2025-11-25 16:05:15,081 - INFO - 成功生成 sorting 题型第 1 题
+2025-11-25 16:05:15,081 - INFO - 成功生成 sorting 题型第 2 题
+2025-11-25 16:05:15,083 - INFO - JSON文件已导出: output.json
+2025-11-25 16:05:15,084 - INFO - 文本文件已导出: output.txt
+2025-11-25 16:07:39,915 - INFO - 测试题生成器初始化完成 - DeepSeek: True
+2025-11-25 16:07:39,916 - ERROR - DeepSeek API调用失败: 'NoneType' object has no attribute 'chat_completion'
+2025-11-25 16:07:39,916 - INFO - 成功生成 choice 题型第 1 题
+2025-11-25 16:07:39,917 - INFO - JSON文件已导出: output.json
+2025-11-25 16:07:39,918 - INFO - 文本文件已导出: output.txt
+2025-11-25 16:09:54,560 - INFO - 测试题生成器初始化完成 - DeepSeek: True
+2025-11-25 16:10:03,178 - WARNING - AI响应不是有效的JSON格式，使用默认结构
+2025-11-25 16:10:03,178 - INFO - 成功生成 choice 题型第 1 题
+2025-11-25 16:10:09,054 - WARNING - AI响应不是有效的JSON格式，使用默认结构
+2025-11-25 16:10:09,055 - INFO - 成功生成 essay 题型第 1 题
+2025-11-25 16:10:09,056 - INFO - JSON文件已导出: output.json
+2025-11-25 16:19:22,259 - INFO - 测试题生成器初始化完成 - DeepSeek: True
+2025-11-25 16:19:31,153 - INFO - 成功生成 choice 题型第 1 题
+2025-11-25 16:19:31,154 - INFO - JSON文件已导出: output.json
+2025-11-25 16:19:31,155 - INFO - 文本文件已导出: output.txt
+2025-11-25 16:27:49,369 - INFO - Test generator initialized - DeepSeek: False
+2025-11-25 16:27:49,371 - INFO - Successfully generated choice question 1
+2025-11-25 16:27:49,372 - INFO - Successfully generated choice question 2
+2025-11-25 16:27:49,372 - INFO - Successfully generated sorting question 1
+2025-11-25 16:27:49,373 - INFO - Successfully generated sorting question 2
+2025-11-25 16:27:49,375 - INFO - JSON file exported: output.json
+2025-11-25 16:27:49,376 - INFO - Text file exported: output.txt
+2025-11-25 16:28:59,480 - INFO - Test generator initialized - DeepSeek: True
+2025-11-25 16:29:07,107 - INFO - Successfully generated choice question 1
+2025-11-25 16:29:07,108 - INFO - JSON file exported: output.json
+2025-11-25 16:29:07,109 - INFO - Text file exported: output.txt

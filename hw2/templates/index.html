@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Справочный Робот - Многофункциональный помощник</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-robot"></i>
+                <h1>Справочный Робот</h1>
+            </div>
+            <p class="subtitle">Многофункциональный интеллектуальный помощник - Прогноз погоды, конвертация валют, перевод, калькулятор, конвертер единиц</p>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="nav-menu">
+                    <button class="nav-btn active" data-tab="weather">
+                        <i class="fas fa-cloud-sun"></i> Прогноз погоды
+                    </button>
+                    <button class="nav-btn" data-tab="currency">
+                        <i class="fas fa-money-bill-wave"></i> Конвертация валют
+                    </button>
+                    <button class="nav-btn" data-tab="translation">
+                        <i class="fas fa-language"></i> Перевод
+                    </button>
+                    <button class="nav-btn" data-tab="calculator">
+                        <i class="fas fa-calculator"></i> Калькулятор
+                    </button>
+                    <button class="nav-btn" data-tab="unit-converter">
+                        <i class="fas fa-ruler-combined"></i> Конвертер единиц
+                    </button>
+                    <button class="nav-btn" data-tab="speech">
+                        <i class="fas fa-microphone"></i> Голосовые функции
+                    </button>
+                    <button class="nav-btn" data-tab="history">
+                        <i class="fas fa-history"></i> История
+                    </button>
+                </div>
+
+                <div class="voice-controls">
+                    <h3><i class="fas fa-microphone-alt"></i> Голосовое управление</h3>
+                    <p class="voice-instructions">Нажмите кнопку "Начать запись" для записи голоса. Браузер запросит доступ к микрофону.</p>
+                    <button id="record-btn" class="voice-btn">
+                        <i class="fas fa-microphone"></i> Начать запись
+                    </button>
+                    <button id="play-btn" class="voice-btn" disabled>
+                        <i class="fas fa-play"></i> Воспроизвести результат
+                    </button>
+                    <div class="recording-status" id="recording-status">
+                        Готов
+                    </div>
+                </div>
+
+                <div class="system-status">
+                    <h3><i class="fas fa-info-circle"></i> Статус системы</h3>
+                    <div class="status-item">
+                        <span>База данных:</span>
+                        <span class="status-indicator active" id="db-status">Нормально</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Голосовые функции:</span>
+                        <span class="status-indicator" id="speech-status">Проверка...</span>
+                    </div>
+                    <div class="status-item">
+                        <span>API соединение:</span>
+                        <span class="status-indicator active" id="api-status">Нормально</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <!-- Модуль прогноза погоды -->
+                <div class="tab-content active" id="weather-tab">
+                    <h2><i class="fas fa-cloud-sun"></i> Прогноз погоды</h2>
+                    <div class="weather-controls">
+                        <input type="text" id="city-input" placeholder="Введите название города, например: Moscow" value="Moscow">
+                        <button id="get-weather-btn" class="action-btn">
+                            <i class="fas fa-search"></i> Запросить погоду
+                        </button>
+                        <button id="location-weather-btn" class="action-btn secondary">
+                            <i class="fas fa-location-arrow"></i> Использовать текущее местоположение
+                        </button>
+                    </div>
+                    <div class="weather-result" id="weather-result">
+                        <div class="loading">Нажмите кнопку запроса для получения информации о погоде...</div>
+                    </div>
+                    <div class="weather-forecast" id="weather-forecast"></div>
+                </div>
+
+                <!-- Модуль конвертации валют -->
+                <div class="tab-content" id="currency-tab">
+                    <h2><i class="fas fa-money-bill-wave"></i> Конвертация валют</h2>
+                    <div class="currency-controls">
+                        <div class="input-group">
+                            <input type="number" id="amount-input" placeholder="Сумма" value="1" min="0" step="0.01">
+                            <select id="from-currency">
+                                <option value="USD">USD - Доллар США</option>
+                                <option value="CNY">CNY - Китайский юань</option>
+                                <option value="EUR">EUR - Евро</option>
+                                <option value="JPY">JPY - Японская иена</option>
+                                <option value="GBP">GBP - Британский фунт</option>
+                                <option value="RUB" selected>RUB - Российский рубль</option>
+                            </select>
+                            <i class="fas fa-exchange-alt"></i>
+                            <select id="to-currency">
+                                <option value="USD">USD - Доллар США</option>
+                                <option value="CNY">CNY - Китайский юань</option>
+                                <option value="EUR" selected>EUR - Евро</option>
+                                <option value="JPY">JPY - Японская иена</option>
+                                <option value="GBP">GBP - Британский фунт</option>
+                                <option value="RUB">RUB - Российский рубль</option>
+                            </select>
+                        </div>
+                        <button id="convert-currency-btn" class="action-btn">
+                            <i class="fas fa-sync-alt"></i> Конвертировать валюту
+                        </button>
+                    </div>
+                    <div class="currency-result" id="currency-result">
+                        <div class="loading">Нажмите кнопку конвертации для получения информации о курсе...</div>
+                    </div>
+                    <div class="currency-rates" id="currency-rates"></div>
+                </div>
+
+                <!-- Модуль перевода -->
+                <div class="tab-content" id="translation-tab">
+                    <h2><i class="fas fa-language"></i> Перевод</h2>
+                    <div class="translation-controls">
+                        <div class="language-selectors">
+                            <select id="source-lang">
+                                <option value="auto">Автоопределение</option>
+                                <option value="zh">Китайский</option>
+                                <option value="en" selected>Английский</option>
+                                <option value="ja">Японский</option>
+                                <option value="ko">Корейский</option>
+                                <option value="fr">Французский</option>
+                                <option value="de">Немецкий</option>
+                                <option value="es">Испанский</option>
+                                <option value="ru">Русский</option>
+                                <option value="pt">Португальский</option>
+                                <option value="it">Итальянский</option>
+                            </select>
+                            <i class="fas fa-exchange-alt"></i>
+                            <select id="target-lang">
+                                <option value="zh">Китайский</option>
+                                <option value="en">Английский</option>
+                                <option value="ja">Японский</option>
+                                <option value="ko">Корейский</option>
+                                <option value="fr">Французский</option>
+                                <option value="de">Немецкий</option>
+                                <option value="es">Испанский</option>
+                                <option value="ru" selected>Русский</option>
+                                <option value="pt">Португальский</option>
+                                <option value="it">Итальянский</option>
+                            </select>
+                        </div>
+                        <textarea id="source-text" placeholder="Введите текст для перевода...">Hello, world!</textarea>
+                        <button id="translate-btn" class="action-btn">
+                            <i class="fas fa-language"></i> Перевести
+                        </button>
+                    </div>
+                    <div class="translation-result" id="translation-result">
+                        <div class="loading">Нажмите кнопку перевода для получения результата...</div>
+                    </div>
+                </div>
+
+                <!-- Модуль калькулятора -->
+                <div class="tab-content" id="calculator-tab">
+                    <h2><i class="fas fa-calculator"></i> Калькулятор</h2>
+                    <div class="calculator">
+                        <div class="calculator-display">
+                            <input type="text" id="calc-input" placeholder="Введите математическое выражение, например: 2+3*4 или sin(π/2)" value="2+3*4">
+                            <div class="calc-result" id="calc-result">Результат будет отображен здесь</div>
+                        </div>
+                        <div class="calculator-buttons">
+                            <button class="calc-btn" data-value="7">7</button>
+                            <button class="calc-btn" data-value="8">8</button>
+                            <button class="calc-btn" data-value="9">9</button>
+                            <button class="calc-btn operator" data-value="/">/</button>
+                            
+                            <button class="calc-btn" data-value="4">4</button>
+                            <button class="calc-btn" data-value="5">5</button>
+                            <button class="calc-btn" data-value="6">6</button>
+                            <button class="calc-btn operator" data-value="*">×</button>
+                            
+                            <button class="calc-btn" data-value="1">1</button>
+                            <button class="calc-btn" data-value="2">2</button>
+                            <button class="calc-btn" data-value="3">3</button>
+                            <button class="calc-btn operator" data-value="-">-</button>
+                            
+                            <button class="calc-btn" data-value="0">0</button>
+                            <button class="calc-btn" data-value=".">.</button>
+                            <button class="calc-btn" id="calc-equals">=</button>
+                            <button class="calc-btn operator" data-value="+">+</button>
+                            
+                            <button class="calc-btn func" data-value="sin(">sin</button>
+                            <button class="calc-btn func" data-value="cos(">cos</button>
+                            <button class="calc-btn func" data-value="sqrt(">√</button>
+                            <button class="calc-btn func" data-value="π">π</button>
+                            
+                            <button class="calc-btn clear" id="calc-clear">C</button>
+                            <button class="calc-btn clear" id="calc-backspace">⌫</button>
+                            <button class="calc-btn func" data-value="(">(</button>
+                            <button class="calc-btn func" data-value=")">)</button>
+                        </div>
+                        <button id="calculate-btn" class="action-btn">
+                            <i class="fas fa-equals"></i> Вычислить
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Модуль конвертера единиц -->
+                <div class="tab-content" id="unit-converter-tab">
+                    <h2><i class="fas fa-ruler-combined"></i> Конвертер единиц</h2>
+                    <div class="unit-converter-controls">
+                        <div class="input-group">
+                            <input type="number" id="unit-value" placeholder="Значение" value="1" min="0" step="0.01">
+                            <select id="unit-category">
+                                <option value="length">Длина</option>
+                                <option value="weight">Вес</option>
+                                <option value="temperature">Температура</option>
+                                <option value="volume">Объем</option>
+                                <option value="speed">Скорость</option>
+                                <option value="area">Площадь</option>
+                                <option value="time">Время</option>
+                                <option value="data">Хранение данных</option>
+                            </select>
+                        </div>
+                        <div class="unit-selectors">
+                            <select id="from-unit">
+                                <option value="meter">Метр (m)</option>
+                                <option value="kilometer">Километр (km)</option>
+                                <option value="centimeter">Сантиметр (cm)</option>
+                            </select>
+                            <i class="fas fa-exchange-alt"></i>
+                            <select id="to-unit">
+                                <option value="kilometer">Километр (km)</option>
+                                <option value="meter">Метр (m)</option>
+                                <option value="centimeter">Сантиметр (cm)</option>
+                            </select>
+                        </div>
+                        <button id="convert-units-btn" class="action-btn">
+                            <i class="fas fa-exchange-alt"></i> Конвертировать единицы
+                        </button>
+                    </div>
+                    <div class="unit-converter-result" id="unit-converter-result">
+                        <div class="loading">Нажмите кнопку конвертации для получения результата...</div>
+                    </div>
+                </div>
+
+                <!-- Модуль голосовых функций -->
+                <div class="tab-content" id="speech-tab">
+                    <h2><i class="fas fa-microphone"></i> Голосовые функции</h2>
+                    <div class="speech-controls">
+                        <div class="speech-input">
+                            <textarea id="speech-text" placeholder="Введите текст для преобразования в речь...">Привет, я Справочный Робот, рад вам помочь!</textarea>
+                            <select id="speech-language">
+                                <option value="zh-CN">Китайский (мандарин)</option>
+                                <option value="en">Английский</option>
+                                <option value="ja">Японский</option>
+                                <option value="ko">Корейский</option>
+                                <option value="fr">Французский</option>
+                                <option value="de">Немецкий</option>
+                                <option value="es">Испанский</option>
+                                <option value="ru" selected>Русский</option>
+                                <option value="it">Итальянский</option>
+                            </select>
+                            <button id="text-to-speech-btn" class="action-btn">
+                                <i class="fas fa-volume-up"></i> Преобразовать в речь
+                            </button>
+                        </div>
+                        <div class="speech-output">
+                            <div class="audio-player" id="audio-player">
+                                <p>Аудиоплеер будет отображен здесь</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="speech-recognition">
+                        <h3><i class="fas fa-microphone-alt"></i> Распознавание речи</h3>
+                        <input type="file" id="audio-file" accept="audio/*" style="display: none;">
+                        <button id="upload-audio-btn" class="action-btn secondary">
+                            <i class="fas fa-upload"></i> Загрузить аудиофайл
+                        </button>
+                        <div class="recognition-result" id="recognition-result">
+                            <div class="loading">Загрузите аудиофайл для распознавания...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Модуль истории -->
+                <div class="tab-content" id="history-tab">
+                    <h2><i class="fas fa-history"></i> История</h2>
+                    <div class="history-controls">
+                        <select id="history-filter">
+                            <option value="all">Все операции</option>
+                            <option value="weather">Прогноз погоды</option>
+                            <option value="currency">Конвертация валют</option>
+                            <option value="translation">Перевод</option>
+                            <option value="calculator">Калькулятор</option>
+                            <option value="unit_conversion">Конвертация единиц</option>
+                        </select>
+                        <button id="refresh-history-btn" class="action-btn">
+                            <i class="fas fa-sync-alt"></i> Обновить
+                        </button>
+                        <button id="clear-history-btn" class="action-btn secondary">
+                            <i class="fas fa-trash"></i> Очистить историю
+                        </button>
+                    </div>
+                    <div class="history-list" id="history-list">
+                        <div class="loading">Загрузка истории...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Справочный Робот &copy; 2025 - Многофункциональный интеллектуальный помощник | Поддержка голосового воспроизведения и голосового ввода команд | Все результаты сохраняются в базу данных</p>
+            <p class="version">Версия 1.0.0 | Последнее обновление: <span id="current-date"></span></p>
+        </footer>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
