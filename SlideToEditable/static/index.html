@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlideToEditable - 幻灯片转换工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        .card h1 {
+            text-align: center;
+            color: #2d3748;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .card .subtitle {
+            text-align: center;
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 28px;
+        }
+        .upload-zone {
+            border: 2px dashed #cbd5e0;
+            border-radius: 12px;
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f7fafc;
+            position: relative;
+        }
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: #667eea;
+            background: #ebf4ff;
+        }
+        .upload-zone .icon {
+            font-size: 40px;
+            margin-bottom: 8px;
+        }
+        .upload-zone .text {
+            color: #4a5568;
+            font-size: 15px;
+        }
+        .upload-zone .hint {
+            color: #a0aec0;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+        .upload-zone input[type="file"] {
+            display: none;
+        }
+        .file-info {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 8px 14px;
+            background: #edf2f7;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #2d3748;
+        }
+        .file-info .remove {
+            margin-left: auto;
+            cursor: pointer;
+            color: #e53e3e;
+            font-weight: bold;
+            font-size: 16px;
+            line-height: 1;
+        }
+        .file-info.show {
+            display: flex;
+        }
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .form-group {
+            flex: 1;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #4a5568;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fff;
+            color: #2d3748;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            appearance: auto;
+        }
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+        .btn-convert {
+            width: 100%;
+            margin-top: 20px;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            transition: opacity 0.3s, transform 0.15s;
+        }
+        .btn-convert:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .btn-convert:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+        .status.show {
+            display: flex;
+        }
+        .status.info {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            border: 1px solid #bee3f8;
+        }
+        .status.success {
+            background: #f0fff4;
+            color: #276749;
+            border: 1px solid #c6f6d5;
+        }
+        .status.error {
+            background: #fff5f5;
+            color: #9b2c2c;
+            border: 1px solid #fed7d7;
+        }
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #bee3f8;
+            border-top-color: #2b6cb0;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>SlideToEditable</h1>
+        <p class="subtitle">幻灯片转换工具 — HTML 转 PDF / PPTX</p>
+
+        <div class="upload-zone" id="dropZone">
+            <div class="icon">📄</div>
+            <div class="text">点击选择文件 或 拖拽 HTML 文件到此处</div>
+            <div class="hint">仅支持 .html 文件</div>
+            <input type="file" id="fileInput" accept=".html">
+        </div>
+
+        <div class="file-info" id="fileInfo">
+            <span>📎</span>
+            <span id="fileName"></span>
+            <span class="remove" id="removeFile">&times;</span>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="format">转换格式</label>
+                <select id="format">
+                    <option value="pdf">PDF</option>
+                    <option value="pptx">PPTX</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="lang">语言</label>
+                <select id="lang">
+                    <option value="ru">Русский (ru)</option>
+                    <option value="en">English (en)</option>
+                    <option value="zh">中文 (zh)</option>
+                    <option value="cn">中文 (cn)</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="btn-convert" id="btnConvert" disabled>开始转换</button>
+
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const removeFile = document.getElementById('removeFile');
+        const btnConvert = document.getElementById('btnConvert');
+        const formatSelect = document.getElementById('format');
+        const langSelect = document.getElementById('lang');
+        const statusEl = document.getElementById('status');
+
+        let selectedFile = null;
+
+        function setStatus(message, type) {
+            statusEl.className = 'status show ' + type;
+            if (type === 'info') {
+                statusEl.innerHTML = '<div class="spinner"></div><span>' + message + '</span>';
+            } else {
+                statusEl.innerHTML = '<span>' + message + '</span>';
+            }
+        }
+
+        function clearStatus() {
+            statusEl.className = 'status';
+            statusEl.innerHTML = '';
+        }
+
+        function updateUI() {
+            if (selectedFile) {
+                fileInfo.classList.add('show');
+                fileName.textContent = selectedFile.name;
+                btnConvert.disabled = false;
+            } else {
+                fileInfo.classList.remove('show');
+                btnConvert.disabled = true;
+            }
+        }
+
+        dropZone.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.html') || file.name.endsWith('.htm')) {
+                    selectedFile = file;
+                    updateUI();
+                    clearStatus();
+                } else {
+                    setStatus('请选择 .html 格式的文件', 'error');
+                }
+            }
+        });
+
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                if (file.name.endsWith('.html') || file.name.endsWith('.htm')) {
+                    selectedFile = file;
+                    updateUI();
+                    clearStatus();
+                } else {
+                    setStatus('请选择 .html 格式的文件', 'error');
+                    fileInput.value = '';
+                }
+            }
+        });
+
+        removeFile.addEventListener('click', function() {
+            selectedFile = null;
+            fileInput.value = '';
+            updateUI();
+            clearStatus();
+        });
+
+        btnConvert.addEventListener('click', async function() {
+            if (!selectedFile) return;
+
+            btnConvert.disabled = true;
+            setStatus('正在转换中，请稍候...', 'info');
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('type', formatSelect.value);
+            formData.append('lang', langSelect.value);
+
+            try {
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(function() { return { detail: '请求失败' }; });
+                    throw new Error(errorData.detail || '服务器返回错误: ' + response.status);
+                }
+
+                const blob = await response.blob();
+                const ext = formatSelect.value === 'pdf' ? 'pdf' : 'pptx';
+                const baseName = selectedFile.name.replace(/\.(html|htm)$/i, '');
+                const downloadName = baseName + '.' + ext;
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = downloadName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                setStatus('转换成功！文件 "' + downloadName + '" 已下载', 'success');
+            } catch (err) {
+                setStatus('转换失败：' + err.message, 'error');
+            } finally {
+                btnConvert.disabled = !selectedFile;
+            }
+        });
+    </script>
+</body>
+</html>
