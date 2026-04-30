@@ -50,6 +50,137 @@ async def root():
     return HTMLResponse(content=index_path.read_text(encoding="utf-8"))
 
 
+def _detect_structure_type(page) -> str:
+    """检测 HTML 的结构类型: 'slide' (class=slide) 或 'presentation' (class=presentation+card) 或 'unknown'"""
+    has_slides = page.evaluate("document.querySelectorAll('.slide').length > 0")
+    if has_slides:
+        return "slide"
+    has_presentations = page.evaluate("document.querySelectorAll('.presentation').length > 0")
+    if has_presentations:
+        return "presentation"
+    return "unknown"
+
+
+def _prepare_pdf_slide_structure(page):
+    """处理 slide 结构的 HTML 用于 PDF 导出"""
+    page.evaluate("""
+        (() => {
+            const slides = document.querySelectorAll('.slide');
+            if (!slides.length) return;
+            slides.forEach(el => {
+                el.style.setProperty('display', 'flex', 'important');
+                el.style.setProperty('visibility', 'visible', 'important');
+                el.style.setProperty('opacity', '1', 'important');
+                el.style.setProperty('width', '100%', 'important');
+                el.style.setProperty('max-width', '100%', 'important');
+                el.style.setProperty('overflow', 'hidden', 'important');
+                el.style.setProperty('overflow-y', 'hidden', 'important');
+                el.classList.add('active');
+            });
+            const pdfBox = document.createElement('div');
+            pdfBox.id = 'pdf-container';
+            pdfBox.style.setProperty('display', 'block', 'important');
+            pdfBox.style.setProperty('width', '100%', 'important');
+            slides.forEach(el => pdfBox.appendChild(el));
+            document.body.innerHTML = '';
+            document.body.appendChild(pdfBox);
+            document.body.style.setProperty('overflow', 'visible', 'important');
+            document.body.style.setProperty('height', 'auto', 'important');
+            document.body.style.setProperty('display', 'block', 'important');
+            document.body.style.setProperty('margin', '0', 'important');
+            document.body.style.setProperty('padding', '0', 'important');
+            const style = document.createElement('style');
+            style.textContent = '.slide:not(:first-child) { page-break-before: always !important; }';
+            document.head.appendChild(style);
+        })();
+    """)
+
+
+def _prepare_pdf_presentation_structure(page):
+    """处理 presentation+card 结构的 HTML 用于 PDF 导出：
+       1. 模拟点击所有导航按钮，触发可能绑定的 JS 事件来加载内容
+       2. 显示所有 presentation
+       3. 展开所有 card 内的 content-block
+       4. 隐藏导航按钮和 toggle 按钮等干扰元素
+    """
+    page.evaluate("""
+        (() => {
+            // 0. First, click all nav buttons to trigger any JS events that load content
+            const navButtons = document.querySelectorAll('nav button, .nav-btn, [data-pres]');
+            navButtons.forEach(btn => {
+                btn.click();
+                btn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
+            });
+            // Also click all toggle buttons to expand content
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.click();
+                btn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
+            });
+        })();
+    """)
+    page.wait_for_timeout(500)
+
+    page.evaluate("""
+        (() => {
+            // 1. Show all presentations
+            document.querySelectorAll('.presentation').forEach(el => {
+                el.style.setProperty('display', 'block', 'important');
+                el.classList.add('active');
+            });
+            // 2. Force expand all content-blocks (theory, task, solution)
+            document.querySelectorAll('.content-block').forEach(el => {
+                el.classList.add('open');
+                el.style.setProperty('max-height', 'none', 'important');
+                el.style.setProperty('height', 'auto', 'important');
+                el.style.setProperty('overflow', 'visible', 'important');
+                el.style.setProperty('transition', 'none', 'important');
+            });
+            // 3. Hide nav
+            const nav = document.querySelector('nav');
+            if (nav) {
+                nav.style.setProperty('display', 'none', 'important');
+            }
+            // 4. Hide toggle buttons
+            document.querySelectorAll('.toggle-btn').forEach(el => {
+                el.style.setProperty('display', 'none', 'important');
+            });
+            // 5. Add page-break between presentations
+            const style = document.createElement('style');
+            style.textContent = '.presentation { page-break-before: always !important; } .presentation:first-of-type { page-break-before: avoid !important; }';
+            document.head.appendChild(style);
+        })();
+    """)
+
+
+def _prepare_pptx_presentation_structure(page, pres_index: int):
+    """处理 presentation+card 结构：只显示指定 presentation，隐藏其他"""
+    page.evaluate(f"""
+        (() => {{
+            document.querySelectorAll('.presentation').forEach((el, idx) => {{
+                if (idx === {pres_index}) {{
+                    el.style.setProperty('display', 'block', 'important');
+                    el.classList.add('active');
+                }} else {{
+                    el.style.setProperty('display', 'none', 'important');
+                }}
+            }});
+            // Expand all content-blocks in visible presentation
+            document.querySelectorAll('.content-block').forEach(el => {{
+                el.classList.add('open');
+                el.style.setProperty('max-height', 'none', 'important');
+                el.style.setProperty('overflow', 'visible', 'important');
+            }});
+            // Hide toggle buttons
+            document.querySelectorAll('.toggle-btn').forEach(el => {{
+                el.style.setProperty('display', 'none', 'important');
+            }});
+            // Hide nav
+            const nav = document.querySelector('nav');
+            if (nav) nav.style.setProperty('display', 'none', 'important');
+        }})();
+    """)
+
+
 def convert_to_pdf(html_path: str, output_path: str, lang: str):
     from playwright.sync_api import sync_playwright
 
@@ -67,14 +198,12 @@ def convert_to_pdf(html_path: str, output_path: str, lang: str):
         try:
             page.evaluate(f"""
                 (() => {{
-                    // 1. Direct DOM class manipulation (most reliable)
                     document.querySelectorAll('.content-ru, .content-en, .content-zh').forEach(el => {{
                         el.classList.remove('active');
                     }});
                     document.querySelectorAll('.content-{lang}').forEach(el => {{
                         el.classList.add('active');
                     }});
-                    // 2. Try clicking the corresponding language button too
                     const langTextMap = {{'ru': ['ru','рус','рос'], 'en': ['en','eng','анг'], 'zh': ['zh','cn','chi','中文','кит']}};
                     const texts = langTextMap['{lang}'] || ['{lang}'];
                     document.querySelectorAll('.lang-btn').forEach(b => {{
@@ -113,41 +242,16 @@ def convert_to_pdf(html_path: str, output_path: str, lang: str):
         page.evaluate(hide_script)
         page.wait_for_timeout(300)
 
-        page.evaluate("""
-            (() => {
-                const slides = document.querySelectorAll('.slide');
-                if (!slides.length) return;
-                // Make all slides visible
-                slides.forEach(el => {
-                    el.style.setProperty('display', 'flex', 'important');
-                    el.style.setProperty('visibility', 'visible', 'important');
-                    el.style.setProperty('opacity', '1', 'important');
-                    el.style.setProperty('width', '100%', 'important');
-                    el.style.setProperty('max-width', '100%', 'important');
-                    el.style.setProperty('overflow', 'hidden', 'important');
-                    el.style.setProperty('overflow-y', 'hidden', 'important');
-                    el.classList.add('active');
-                });
-                // Move all slides into a clean container to avoid flex layout issues
-                const pdfBox = document.createElement('div');
-                pdfBox.id = 'pdf-container';
-                pdfBox.style.setProperty('display', 'block', 'important');
-                pdfBox.style.setProperty('width', '100%', 'important');
-                slides.forEach(el => pdfBox.appendChild(el));
-                // Clear body and append
-                document.body.innerHTML = '';
-                document.body.appendChild(pdfBox);
-                document.body.style.setProperty('overflow', 'visible', 'important');
-                document.body.style.setProperty('height', 'auto', 'important');
-                document.body.style.setProperty('display', 'block', 'important');
-                document.body.style.setProperty('margin', '0', 'important');
-                document.body.style.setProperty('padding', '0', 'important');
-                // Add page-break CSS
-                const style = document.createElement('style');
-                style.textContent = '.slide:not(:first-child) { page-break-before: always !important; }';
-                document.head.appendChild(style);
-            })();
-        """)
+        struct_type = _detect_structure_type(page)
+
+        if struct_type == "slide":
+            _prepare_pdf_slide_structure(page)
+        elif struct_type == "presentation":
+            _prepare_pdf_presentation_structure(page)
+        else:
+            # Fallback: just render the page as-is
+            pass
+
         page.wait_for_timeout(200)
 
         page.pdf(
@@ -177,15 +281,147 @@ def extract_hex_color(style_value: str) -> str | None:
     return None
 
 
+def _get_pptx_slide_elements(soup, struct_type: str, lang: str):
+    """获取 PPTX 的幻灯片元素列表（每个元素将生成一页幻灯片）"""
+    if struct_type == "slide":
+        return soup.find_all(class_="slide")
+    elif struct_type == "presentation":
+        # For presentation structure, each card becomes a slide
+        cards = soup.find_all(class_="card")
+        if cards:
+            return cards
+        # Fallback: use presentation divs
+        return soup.find_all(class_="presentation")
+    return []
+
+
+def _extract_structured_text(slide_elem, lang: str) -> list[dict]:
+    """从幻灯片元素中提取结构化文本，保留标题/正文层级关系
+    返回: [{"level": "title"|"subtitle"|"heading"|"body"|"label", "text": str}, ...]
+    """
+    items = []
+    content_blocks = slide_elem.select(f".content-{lang}")
+    if not content_blocks:
+        content_blocks = slide_elem.select('[class*="content-"]')
+    if not content_blocks:
+        content_blocks = [slide_elem]
+
+    for block in content_blocks:
+        for el in block.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "div", "span"]):
+            text = el.get_text(strip=True)
+            if not text or len(text) < 2:
+                continue
+
+            tag = el.name
+            cls = " ".join(el.get("class", []))
+
+            if tag in ("h1",):
+                items.append({"level": "title", "text": text})
+            elif tag in ("h2",):
+                items.append({"level": "subtitle", "text": text})
+            elif tag in ("h3", "h4", "h5", "h6"):
+                items.append({"level": "heading", "text": text})
+            elif "section-title" in cls:
+                items.append({"level": "label", "text": text})
+            elif "card-header" in cls:
+                items.append({"level": "heading", "text": text})
+            elif "solution" in cls:
+                items.append({"level": "body", "text": text})
+            elif tag == "li":
+                items.append({"level": "body", "text": f"• {text}"})
+            elif tag == "p":
+                items.append({"level": "body", "text": text})
+            elif tag == "div" and text and len(text) > 20:
+                items.append({"level": "body", "text": text})
+    return items
+
+
+def _build_pptx_slide_from_text(prs, slide_items: list[dict], slide_title: str = ""):
+    """根据结构化文本构建纯文字 PPTX 幻灯片"""
+    slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank layout
+
+    left = Inches(0.4)
+    top = Inches(0.2)
+    width = Inches(9.2)
+    height = Inches(5.2)
+
+    txBox = slide.shapes.add_textbox(left, top, width, height)
+    tf = txBox.text_frame
+    tf.word_wrap = True
+
+    first = True
+    for item in slide_items:
+        level = item["level"]
+        text = item["text"]
+
+        if first:
+            p = tf.paragraphs[0]
+            first = False
+        else:
+            p = tf.add_paragraph()
+
+        p.text = text
+        p.space_after = Pt(4)
+
+        if level == "title":
+            p.font.size = Pt(24)
+            p.font.bold = True
+            p.font.color.rgb = RGBColor(0x1e, 0x40, 0xaf)
+            p.space_after = Pt(8)
+        elif level == "subtitle":
+            p.font.size = Pt(20)
+            p.font.bold = True
+            p.font.color.rgb = RGBColor(0x25, 0x63, 0xeb)
+            p.space_after = Pt(6)
+        elif level == "heading":
+            p.font.size = Pt(16)
+            p.font.bold = True
+            p.font.color.rgb = RGBColor(0x0f, 0x17, 0x2a)
+            p.space_after = Pt(4)
+        elif level == "label":
+            p.font.size = Pt(14)
+            p.font.bold = True
+            p.font.color.rgb = RGBColor(0x1e, 0x40, 0xaf)
+            p.space_before = Pt(6)
+            p.space_after = Pt(2)
+        else:
+            p.font.size = Pt(12)
+            p.font.color.rgb = RGBColor(0x0f, 0x17, 0x2a)
+
+    return slide
+
+
 def convert_to_pptx(html_path: str, output_path: str, lang: str):
     from playwright.sync_api import sync_playwright
 
-    # First, extract text content via BeautifulSoup for editable text overlay
+    # First try extracting from static HTML via BeautifulSoup
     with open(html_path, "r", encoding="utf-8", errors="replace") as f:
         html_content = f.read()
     soup = BeautifulSoup(html_content, "lxml")
-    soup_slides = soup.find_all(class_="slide")
 
+    # Detect structure type from soup
+    soup_slides = soup.find_all(class_="slide")
+    soup_cards = soup.find_all(class_="card")
+    soup_presentations = soup.find_all(class_="presentation")
+
+    # If static HTML already has the elements, use them directly (no Playwright needed)
+    if soup_slides or soup_cards:
+        struct_type = "slide" if soup_slides else "presentation"
+        soup_elements = soup_slides if soup_slides else soup_cards
+
+        prs = Presentation()
+        prs.slide_width = Inches(10)
+        prs.slide_height = Inches(5.625)
+
+        for elem in soup_elements:
+            items = _extract_structured_text(elem, lang)
+            if items:
+                _build_pptx_slide_from_text(prs, items)
+
+        prs.save(output_path)
+        return
+
+    # If elements are dynamically rendered by JS, use Playwright to render and extract
     with sync_playwright() as p:
         browser = p.chromium.launch(**BROWSER_LAUNCH_OPTIONS)
         context = browser.new_context(
@@ -221,130 +457,52 @@ def convert_to_pptx(html_path: str, output_path: str, lang: str):
         except Exception:
             pass
 
-        # Hide interference elements
+        # Click all nav buttons and toggle buttons to expand content
         page.evaluate("""
             (() => {
-                const selectors = [
-                    '.nav-btn', '.nav-button', '.navigation',
-                    '.download-btn', '.download-button', '.download',
-                    '.progress-bar', '.progress',
-                    '.control-btn', '.controls',
-                    '.lang-btn', '.language-selector',
-                    '.toolbar', '.menu',
-                ];
-                selectors.forEach(sel => {
-                    document.querySelectorAll(sel).forEach(el => {
-                        el.style.display = 'none';
-                        el.style.visibility = 'hidden';
-                        el.style.opacity = '0';
-                        el.style.pointerEvents = 'none';
-                    });
+                const navButtons = document.querySelectorAll('nav button, .nav-btn, [data-pres]');
+                navButtons.forEach(btn => {
+                    btn.click();
+                    btn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
+                });
+                document.querySelectorAll('.toggle-btn').forEach(btn => {
+                    btn.click();
+                    btn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
                 });
             })();
         """)
-        page.wait_for_timeout(300)
+        page.wait_for_timeout(500)
 
-        # Get slide count
-        slide_count = page.evaluate("document.querySelectorAll('.slide').length")
-        if not slide_count:
-            context.close()
-            browser.close()
-            raise ValueError("未在 HTML 中找到任何 class='slide' 的元素")
+        # Detect structure from rendered DOM
+        struct_type = _detect_structure_type(page)
 
-        prs = Presentation()
-        prs.slide_width = Inches(10)
-        prs.slide_height = Inches(5.625)
+        if struct_type == "unknown":
+            # Fallback: try to find card elements
+            has_cards = page.evaluate("document.querySelectorAll('.card').length > 0")
+            if has_cards:
+                struct_type = "presentation"
+            else:
+                context.close()
+                browser.close()
+                raise ValueError("未在 HTML 中找到任何 class='slide' 或 class='presentation' 的元素")
 
-        blank_layout = prs.slide_layouts[6]
-
-        for i in range(slide_count):
-            # Show only current slide, hide others
-            page.evaluate(f"""
-                (() => {{
-                    document.querySelectorAll('.slide').forEach((el, idx) => {{
-                        if (idx === {i}) {{
-                            el.style.setProperty('display', 'flex', 'important');
-                            el.style.setProperty('visibility', 'visible', 'important');
-                            el.style.setProperty('opacity', '1', 'important');
-                            el.style.setProperty('position', 'relative', 'important');
-                            el.style.setProperty('left', '0', 'important');
-                            el.style.setProperty('top', '0', 'important');
-                            el.classList.add('active');
-                        }} else {{
-                            el.style.setProperty('display', 'none', 'important');
-                            el.style.setProperty('visibility', 'hidden', 'important');
-                        }}
-                    }});
-                }})();
-            """)
-            page.wait_for_timeout(300)
-
-            # Screenshot the current slide
-            clip = page.evaluate(f"""
-                (() => {{
-                    const el = document.querySelectorAll('.slide')[{i}];
-                    const rect = el.getBoundingClientRect();
-                    return {{x: rect.x, y: rect.y, width: rect.width, height: rect.height}};
-                }})();
-            """)
-
-            screenshot_path = str(UPLOAD_DIR / f"{uuid.uuid4().hex}_slide_{i}.png")
-            page.screenshot(path=screenshot_path, clip=clip)
-
-            # Add to PPTX
-            new_slide = prs.slides.add_slide(blank_layout)
-
-            # 1. Add screenshot as full-slide background image
-            pic = new_slide.shapes.add_picture(
-                screenshot_path,
-                Inches(0), Inches(0),
-                Inches(10), Inches(5.625),
-            )
-
-            # 2. Extract text from this slide for editable overlay
-            slide_texts = []
-            if i < len(soup_slides):
-                slide_elem = soup_slides[i]
-                # Try language-specific content first
-                content_blocks = slide_elem.select(f".content-{lang}")
-                if not content_blocks:
-                    content_blocks = slide_elem.select('[class*="content-"]')
-                if not content_blocks:
-                    content_blocks = [slide_elem]
-
-                for block in content_blocks:
-                    for el in block.find_all(["h1", "h2", "h3", "p", "li"]):
-                        text = el.get_text(strip=True)
-                        if text:
-                            slide_texts.append(text)
-
-            # 3. Add editable text overlay (transparent text box)
-            if slide_texts:
-                txBox = new_slide.shapes.add_textbox(
-                    Inches(0.3), Inches(0.2),
-                    Inches(9.4), Inches(5.2),
-                )
-                tf = txBox.text_frame
-                tf.word_wrap = True
-
-                for j, text in enumerate(slide_texts):
-                    if j == 0:
-                        p = tf.paragraphs[0]
-                    else:
-                        p = tf.add_paragraph()
-                    p.text = text
-                    p.font.size = Pt(12)
-                    p.font.color.rgb = RGBColor(0, 0, 0)
-                    p.space_after = Pt(4)
-
-            # Cleanup screenshot
-            try:
-                os.unlink(screenshot_path)
-            except Exception:
-                pass
-
+        # Extract rendered HTML and parse with BeautifulSoup
+        rendered_html = page.content()
         context.close()
         browser.close()
+
+    # Parse the rendered HTML to extract text
+    rendered_soup = BeautifulSoup(rendered_html, "lxml")
+    soup_elements = _get_pptx_slide_elements(rendered_soup, struct_type, lang)
+
+    prs = Presentation()
+    prs.slide_width = Inches(10)
+    prs.slide_height = Inches(5.625)
+
+    for elem in soup_elements:
+        items = _extract_structured_text(elem, lang)
+        if items:
+            _build_pptx_slide_from_text(prs, items)
 
     prs.save(output_path)
 
@@ -421,4 +579,4 @@ def convert(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000)
+    uvicorn.run("app:app", host="127.0.0.1", port=8001)
